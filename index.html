@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTEST — Master Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <style>
+    :root {
+      --teal-dark: #134E4A;
+      --teal-main: #0D9488;
+      --bg-soft: #F4F8F7;
+      --line: #D5E9E5;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-soft); color: #183B38; }
+    .admin-card { background: #ffffff; border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 6px 20px rgba(19, 78, 74, 0.06); }
+    .tab-btn.active { background: var(--teal-main); color: #ffffff; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ADMIN LOGIN GATE -->
+  <div id="adminLoginGate" class="fixed inset-0 z-50 bg-[#e6f4f1] flex items-center justify-center p-4">
+    <div class="admin-card max-w-sm w-full p-7 text-center space-y-4">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-[#134E4A] text-white flex items-center justify-center text-3xl shadow-md">🛡️</div>
+      <div>
+        <h1 class="text-xl font-black text-[#134E4A]">GTEST Master Admin</h1>
+        <p class="text-xs text-slate-500 mt-1">Manage NCERT, Exams, Students, Progress & Requests</p>
+      </div>
+      <form onsubmit="handleAdminLogin(event)" class="space-y-3 text-left">
+        <div>
+          <label class="block text-xs font-bold mb-1">Admin Password</label>
+          <input type="password" id="adminPassInput" placeholder="Default PIN: admin123" required
+                 class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0D9488]">
+        </div>
+        <button type="submit" class="w-full py-3 bg-[#0D9488] hover:bg-[#134E4A] text-white font-bold text-sm rounded-xl shadow transition">
+          Unlock Admin Panel →
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN ADMIN SHELL -->
+  <div id="adminMainShell" class="hidden flex-1 flex flex-col">
+    <header style="background: linear-gradient(135deg, #134E4A 0%, #0D9488 100%);" class="text-white shadow-md sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-xl">🎓</div>
+          <div>
+            <h1 class="text-lg font-black tracking-wide leading-tight">GTEST ADMIN PANEL</h1>
+            <p class="text-[11px] text-teal-100">Complete Control • Student-wise Data Sync</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="syncAllAdminData()" class="px-3.5 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold transition">🔄 Sync Cloud</button>
+          <button onclick="logoutAdmin()" class="px-3.5 py-2 bg-rose-500/90 hover:bg-rose-600 rounded-xl text-xs font-bold transition">🚪 Lock</button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="bg-[#0F3936]/60 border-t border-white/10">
+        <div class="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto">
+          <button onclick="switchAdminTab('tabRequests')" data-tab="tabRequests" class="tab-btn active px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5">
+            🔐 Reset Requests <span id="badgePendingCount" class="px-1.5 bg-amber-400 text-slate-900 rounded-full text-[10px] font-black">0</span>
+          </button>
+          <button onclick="switchAdminTab('tabStudents')" data-tab="tabStudents" class="tab-btn px-3.5 py-2 rounded-xl text-xs font-bold text-teal-100 hover:bg-white/10 whitespace-nowrap transition">
+            👥 Students (Profile / Progress / NoteIt)
+          </button>
+          <button onclick="switchAdminTab('tabNcert')" data-tab="tabNcert" class="tab-btn px-3.5 py-2 rounded-xl text-xs font-bold text-teal-100 hover:bg-white/10 whitespace-nowrap transition">
+            📘 NCERT Manager
+          </button>
+          <button onclick="switchAdminTab('tabExams')" data-tab="tabExams" class="tab-btn px-3.5 py-2 rounded-xl text-xs font-bold text-teal-100 hover:bg-white/10 whitespace-nowrap transition">
+            🎓 Exam Prep (CTET/JTET+)
+          </button>
+          <button onclick="switchAdminTab('tabLibrary')" data-tab="tabLibrary" class="tab-btn px-3.5 py-2 rounded-xl text-xs font-bold text-teal-100 hover:bg-white/10 whitespace-nowrap transition">
+            🏛️ Study Library
+          </button>
+          <button onclick="switchAdminTab('tabFeedbacks')" data-tab="tabFeedbacks" class="tab-btn px-3.5 py-2 rounded-xl text-xs font-bold text-teal-100 hover:bg-white/10 whitespace-nowrap transition">
+            💬 App Feedbacks
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-1 space-y-6">
+
+      <!-- ========================================================= -->
+      <!-- 1. PASSWORD RESET REQUESTS                                -->
+      <!-- ========================================================= -->
+      <section id="tabRequests" class="admin-tab-view space-y-4">
+        <div class="admin-card p-5 flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-amber-500">
+          <div>
+            <h2 class="text-base font-black text-[#134E4A]">🔐 Password Reset Approval Center</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Student ke email reset request ko approve karein — naya password automatic student ke email par chala jayega.</p>
+          </div>
+          <button onclick="syncAllAdminData()" class="px-4 py-2 bg-[#134E4A] text-white text-xs font-bold rounded-xl">🔄 Refresh</button>
+        </div>
+        <div id="resetRequestsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- 2. STUDENTS (PROFILE, PROGRESS & NOTE IT BY STUDENT ID)   -->
+      <!-- ========================================================= -->
+      <section id="tabStudents" class="admin-tab-view hidden space-y-5">
+        <div class="admin-card p-5 space-y-4">
+          <h2 class="text-base font-black text-[#134E4A]">➕ Create New Student Login Account</h2>
+          <p class="text-xs text-slate-500">Student ko sirf Username, Password aur Registered Email banakar dein. Baaki Profile details student khud app mein fill karega jo yahan automatically sync hongi.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs font-bold mb-1">Student ID *</label>
+              <input type="text" id="stuId" placeholder="e.g. GT-2026-002" class="w-full px-3 py-2 text-xs border rounded-xl font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">Login Username *</label>
+              <input type="text" id="stuUsername" placeholder="e.g. rahul02" class="w-full px-3 py-2 text-xs border rounded-xl">
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">Initial Password *</label>
+              <input type="text" id="stuPassword" placeholder="e.g. 123456" class="w-full px-3 py-2 text-xs border rounded-xl">
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1">Registered Email *</label>
+              <input type="email" id="stuEmail" placeholder="student@gmail.com" class="w-full px-3 py-2 text-xs border rounded-xl">
+            </div>
+          </div>
+          <button onclick="createStudentAccount()" class="px-5 py-2.5 bg-[#0D9488] hover:bg-[#134E4A] text-white text-xs font-bold rounded-xl shadow">
+            💾 Create Student Login
+          </button>
+        </div>
+
+        <!-- Students Directory -->
+        <div class="admin-card p-5 space-y-3">
+          <h3 class="text-sm font-black text-[#134E4A]">📋 Registered Students (Click "Inspect Data" for Profile, Progress & NOTE IT)</h3>
+          <div id="studentsListContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+        </div>
+
+        <!-- Student Inspector Modal/Card (Shows Student's Profile, Progress & Note It) -->
+        <div id="studentInspectorBox" class="hidden admin-card p-5 border-2 border-[#0D9488] space-y-4">
+          <div class="flex items-center justify-between border-b pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase text-[#0D9488]">Student Record Inspector</span>
+              <h3 id="inspHeaderTitle" class="text-base font-black text-[#134E4A]">Student Details</h3>
+            </div>
+            <button onclick="document.getElementById('studentInspectorBox').classList.add('hidden')" class="px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold">✕ Close</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div class="p-3.5 rounded-xl bg-slate-50 border space-y-1.5" id="inspProfileCol"></div>
+            <div class="p-3.5 rounded-xl bg-slate-50 border space-y-1.5" id="inspProgressCol"></div>
+            <div class="p-3.5 rounded-xl bg-slate-50 border space-y-1.5" id="inspNoteItCol"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- 3. NCERT MANAGER (CLASS TOGGLE, SUBJECT, CHAPTER, NOTES, Q) -->
+      <!-- ========================================================= -->
+      <section id="tabNcert" class="admin-tab-view hidden space-y-5">
+        <!-- Step 1: Class Disable / Unavailable Toggle -->
+        <div class="admin-card p-5 space-y-3">
+          <h2 class="text-sm font-black text-[#134E4A]">1. Class Availability Control (Enable / Disable Classes 6–12)</h2>
+          <p class="text-xs text-slate-500">Jis class ko Disable/Unavailable karenge, woh student ko app mein unavailable dikhegi.</p>
+          <div id="ncertClassTogglesGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5"></div>
+        </div>
+
+        <!-- Step 2 & 3: Add Subject according to Class & Add Chapter according to Subject -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="admin-card p-5 space-y-3">
+            <h2 class="text-sm font-black text-[#134E4A]">2. Add Subject According to Class</h2>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold mb-1">Select Class *</label>
+                <select id="ncertAddSubjClass" class="w-full px-3 py-2 text-xs border rounded-xl bg-white">
+                  <option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option>
+                  <option value="9">Class 9</option><option value="10">Class 10</option><option value="11">Class 11</option><option value="12">Class 12</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold mb-1">Icon Emoji</label>
+                <input type="text" id="ncertAddSubjIcon" value="📘" class="w-full px-3 py-2 text-xs border rounded-xl">
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-bold mb-1">Subject Name *</label>
+                <input type="text" id="ncertAddSubjName" placeholder="e.g. Geography (भूगोल) / Science" class="w-full px-3 py-2 text-xs border rounded-xl">
+              </div>
+            </div>
+            <button onclick="addNcertSubjectForClass()" class="w-full py-2.5 bg-[#134E4A] text-white text-xs font-bold rounded-xl">➕ Add Subject to Class</button>
+          </div>
+
+          <div class="admin-card p-5 space-y-3">
+            <h2 class="text-sm font-black text-[#134E4A]">3. Add Chapter According to Subject</h2>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold mb-1">Select Class *</label>
+                <select id="ncertChapClassSel" onchange="populateSubjectsForSelectedClass('ncertChapClassSel', 'ncertChapSubjSel')" class="w-full px-3 py-2 text-xs border rounded-xl bg-white">
+                  <option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option>
+                  <option value="9">Class 9</option><option value="10">Class 10</option><option value="11">Class 11</option><option value="12">Class 12</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold mb-1">Select Subject *</label>
+                <select id="ncertChapSubjSel" class="w-full px-3 py-2 text-xs border rounded-xl bg-white"></select>
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-bold mb-1">Chapter Name *</label>
+                <input type="text" id="ncertChapNameInput" placeholder="e.g. Chapter 1: Resources and Development" class="w-full px-3 py-2 text-xs border rounded-xl">
+              </div>
+            </div>
+            <button onclick="addNcertChapterToSubject()" class="w-full py-2.5 bg-[#0D9488] text-white text-xs font-bold rounded-xl">➕ Add Chapter</button>
+          </div>
+        </div>
+
+        <!-- Step 4 & 5: Add Notes & Test Questions According to Class -> Subject -> Chapter -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Add NCERT Notes -->
+          <div class="admin-card p-5 space-y-3">
+            <h2 class="text-sm font-black text-[#134E4A]">4. Add NCERT PDF Notes</h2>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="ncertNoteClassSel" onchange="populateSubjectsForSelectedClass('ncertNoteClassSel', 'ncertNoteSubjSel', 'ncertNoteChapSel')" class="px-2.5 py-2 text-xs border rounded-xl bg-white">
+                <option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option>
+                <option value="9">Class 9</option><option value="10">Class 10</option><option value="11">Class 11</option><option value="12">Class 12</option>
+              </select>
+              <select id="ncertNoteSubjSel" onchange="populateChaptersForSelectedSubject('ncertNoteClassSel', 'ncertNoteSubjSel', 'ncertNoteChapSel')" class="px-2.5 py-2 text-xs border rounded-xl bg-white"></select>
+            </div>
+            <select id="ncertNoteChapSel" class="w-full px-3 py-2 text-xs border rounded-xl bg-white"></select>
+            <input type="text" id="ncertNoteTitle" placeholder="PDF Note Title *" class="w-full px-3 py-2 text-xs border rounded-xl">
+            <input type="url" id="ncertNoteUrl" placeholder="Google Drive PDF Link *" class="w-full px-3 py-2 text-xs border rounded-xl">
+            <button onclick="saveNcertPdfNote()" class="w-full py-2.5 bg-[#134E4A] text-white text-xs font-bold rounded-xl">📄 Save NCERT Note</button>
+          </div>
+
+          <!-- Add NCERT Chapter Questions -->
+          <div class="admin-card p-5 space-y-3">
+            <h2 class="text-sm font-black text-[#134E4A]">5. Add NCERT Practice Questions</h2>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="ncertQClassSel" onchange="populateSubjectsForSelectedClass('ncertQClassSel', 'ncertQSubjSel', 'ncertQChapSel')" class="px-2.5 py-2 text-xs border rounded-xl bg-white">
+                <option value="6">Class 6</option><option value="7">Class 7</option><option value="8">Class 8</option>
+                <option value="9">Class 9</option><option value="10">Class 10</option><option value="11">Class 11</option><option value="12">Class 12</option>
+              </select>
+              <select id="ncertQSubjSel" onchange="populateChaptersForSelectedSubject('ncertQClassSel', 'ncertQSubjSel', 'ncertQChapSel')" class="px-2.5 py-2 text-xs border rounded-xl bg-white"></select>
+            </div>
+            <select id="ncertQChapSel" class="w-full px-3 py-2 text-xs border rounded-xl bg-white"></select>
+            <textarea id="ncertQText" rows="2" placeholder="Question text *" class="w-full px-3 py-2 text-xs border rounded-xl"></textarea>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="ncertQOpt0" placeholder="Option A *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+              <input type="text" id="ncertQOpt1" placeholder="Option B *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+              <input type="text" id="ncertQOpt2" placeholder="Option C *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+              <input type="text" id="ncertQOpt3" placeholder="Option D *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <select id="ncertQCorrect" class="px-2.5 py-1.5 text-xs border rounded-lg bg-white font-bold">
+                <option value="0">Ans: A</option><option value="1">Ans: B</option><option value="2">Ans: C</option><option value="3">Ans: D</option>
+              </select>
+              <input type="text" id="ncertQExp" placeholder="Explanation / Key Point" class="col-span-2 px-2.5 py-1.5 text-xs border rounded-lg">
+            </div>
+            <button onclick="saveNcertQuestion()" class="w-full py-2.5 bg-[#0D9488] text-white text-xs font-bold rounded-xl">➕ Add NCERT Question</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- 4. EXAM PREPARATION (ADD EXAM NAME + NOTES/MOCK/CH/PYQ/SET) -->
+      <!-- ========================================================= -->
+      <section id="tabExams" class="admin-tab-view hidden space-y-5">
+        <!-- Add Exam Name (CTET, JTET, etc.) -->
+        <div class="admin-card p-5 space-y-3">
+          <h2 class="text-base font-black text-[#134E4A]">1. Add Competitive Exam Category (e.g., CTET, JTET, JSSC)</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <input type="text" id="newExamCode" placeholder="Exam Short Name (e.g. CTET)" class="px-3 py-2 text-xs border rounded-xl uppercase">
+            <input type="text" id="newExamFull" placeholder="Full Title (e.g. Central Teacher Eligibility Test)" class="px-3 py-2 text-xs border rounded-xl">
+            <button onclick="addExamCategory()" class="py-2 bg-[#134E4A] text-white text-xs font-bold rounded-xl">➕ Add Exam Name</button>
+          </div>
+          <div id="activeExamsBadges" class="flex flex-wrap gap-2 pt-1"></div>
+        </div>
+
+        <!-- Create Exam Resource / Test Container -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="admin-card p-5 space-y-3">
+            <h2 class="text-sm font-black text-[#134E4A]">2. Add Exam Material (Notes / Mock / Chapter Test / PYQ / Practice Set)</h2>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold mb-1">Select Exam *</label>
+                <select id="examTargetSelect" class="w-full px-3 py-2 text-xs border rounded-xl bg-white"></select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold mb-1">Section Type *</label>
+                <select id="examSectionType" onchange="toggleExamItemFields()" class="w-full px-3 py-2 text-xs border rounded-xl bg-white">
+                  <option value="NOTE">📖 Exam PDF Note</option>
+                  <option value="MOCK">🎯 Full Mock Test</option>
+                  <option value="CHAPTER_TEST">✍️ Chapter-wise Mock Test</option>
+                  <option value="PYQ">📜 PYQ Paper</option>
+                  <option value="SET">📦 Practice Set</option>
+                </select>
+              </div>
+            </div>
+            <input type="text" id="examItemTitle" placeholder="Title (e.g. CTET Mock Test 1 / PYQ 2024 / CDP Notes) *" class="w-full px-3 py-2 text-xs border rounded-xl">
+            <div id="examNoteUrlBox">
+              <input type="url" id="examNotePdfUrl" placeholder="Google Drive PDF URL *" class="w-full px-3 py-2 text-xs border rounded-xl">
+            </div>
+            <div id="examTimerBox" class="hidden">
+              <input type="number" id="examTestTimer" placeholder="Test Duration in Minutes (e.g. 30)" class="w-full px-3 py-2 text-xs border rounded-xl">
+            </div>
+            <button onclick="createExamItem()" class="w-full py-2.5 bg-[#0D9488] text-white text-xs font-bold rounded-xl">💾 Save Exam Item</button>
+          </div>
+
+          <!-- Add MCQ Question to Exam Test -->
+          <div class="admin-card p-5 space-y-3">
+            <h2 class="text-sm font-black text-[#134E4A]">3. Add MCQ Question to Exam Test / PYQ / Set</h2>
+            <select id="examTestTargetSelect" class="w-full px-3 py-2 text-xs border rounded-xl bg-white"></select>
+            <textarea id="examQText" rows="2" placeholder="Question text *" class="w-full px-3 py-2 text-xs border rounded-xl"></textarea>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="examQOpt0" placeholder="Option A *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+              <input type="text" id="examQOpt1" placeholder="Option B *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+              <input type="text" id="examQOpt2" placeholder="Option C *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+              <input type="text" id="examQOpt3" placeholder="Option D *" class="px-2.5 py-1.5 text-xs border rounded-lg">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <select id="examQCorrect" class="px-2.5 py-1.5 text-xs border rounded-lg bg-white font-bold">
+                <option value="0">Ans: A</option><option value="1">Ans: B</option><option value="2">Ans: C</option><option value="3">Ans: D</option>
+              </select>
+              <input type="text" id="examQExp" placeholder="Explanation" class="col-span-2 px-2.5 py-1.5 text-xs border rounded-lg">
+            </div>
+            <button onclick="saveExamQuestion()" class="w-full py-2.5 bg-[#134E4A] text-white text-xs font-bold rounded-xl">➕ Add Question to Exam Test</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- 5. STUDY LIBRARY (SAME)                                   -->
+      <!-- ========================================================= -->
+      <section id="tabLibrary" class="admin-tab-view hidden space-y-5">
+        <div class="admin-card p-5 space-y-3">
+          <h2 class="text-base font-black text-[#134E4A]">🏛️ Add Study Library Item</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select id="libTypeInput" class="px-3 py-2 text-xs border rounded-xl bg-white">
+              <option value="QUOTE">✨ Motivational Quote</option>
+              <option value="TEXT">📝 Reference Text</option>
+              <option value="PDF">📄 PDF Link</option>
+              <option value="PICTURE">🖼️ Picture URL</option>
+            </select>
+            <input type="text" id="libTitleInput" placeholder="Title *" class="px-3 py-2 text-xs border rounded-xl">
+            <textarea id="libContentInput" rows="2" placeholder="Content or URL *" class="sm:col-span-2 px-3 py-2 text-xs border rounded-xl"></textarea>
+          </div>
+          <button onclick="addLibraryItem()" class="px-5 py-2.5 bg-[#0D9488] text-white text-xs font-bold rounded-xl">➕ Publish</button>
+        </div>
+        <div id="libraryItemsAdminList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- 6. APP FEEDBACKS (ACCORDING TO STUDENT ID)                -->
+      <!-- ========================================================= -->
+      <section id="tabFeedbacks" class="admin-tab-view hidden space-y-4">
+        <div class="admin-card p-5">
+          <h2 class="text-base font-black text-[#134E4A] mb-3">💬 Student App Feedbacks (By Student ID)</h2>
+          <div id="feedbacksListContainer" class="space-y-3"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    const FIREBASE_BASE_URL = 'https://ctet-sst-portal-default-rtdb.firebaseio.com';
+    const ADMIN_PIN = 'admin123';
+    // =========================================================================
+    // EMAILJS CONFIGURATION (ADMIN -> STUDENT APPROVAL EMAIL)
+    // =========================================================================
+    const EMAILJS_PUBLIC_KEY = 'MQXpMrypHP9Dh_n5P';
+    const EMAILJS_SERVICE_ID = 'service_nbu4zkh';
+    const EMAILJS_STUDENT_TEMPLATE_ID = 'template_mod5mxp';
+
+    if (typeof emailjs !== 'undefined') {
+      emailjs.init(EMAILJS_PUBLIC_KEY);
+    }
+
+
+    let DB = {
+      resetRequests: {},
+      students: {},
+      studentData: {},
+      disabledClasses: {},
+      appData: {},
+      examCategories: [],
+      examItems: [],
+      notes: [],
+      questions: [],
+      library: [],
+      feedbacks: {}
+    };
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      if (document.getElementById('adminPassInput').value.trim() === ADMIN_PIN) {
+        sessionStorage.setItem('gtest_admin_unlocked', '1');
+        unlockAdminPanel();
+      } else {
+        alert('❌ Wrong Admin Password!');
+      }
+    }
+
+    function unlockAdminPanel() {
+      document.getElementById('adminLoginGate').classList.add('hidden');
+      document.getElementById('adminMainShell').classList.remove('hidden');
+      syncAllAdminData();
+    }
+
+    function logoutAdmin() {
+      sessionStorage.removeItem('gtest_admin_unlocked');
+      location.reload();
+    }
+
+    function switchAdminTab(tabId) {
+      document.querySelectorAll('.admin-tab-view').forEach(el => el.classList.toggle('hidden', el.id !== tabId));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isAct = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', isAct);
+        btn.classList.toggle('text-teal-100', !isAct);
+      });
+    }
+
+    async function syncAllAdminData() {
+      try {
+        const [reqRes, stuRes, stuDataRes, disRes, appRes, exCatRes, exItemRes, noteRes, qRes, libRes, fbRes] = await Promise.all([
+          fetch(`${FIREBASE_BASE_URL}/password_reset_requests.json`),
+          fetch(`${FIREBASE_BASE_URL}/student_accounts.json`),
+          fetch(`${FIREBASE_BASE_URL}/student_data.json`),
+          fetch(`${FIREBASE_BASE_URL}/disabled_classes.json`),
+          fetch(`${FIREBASE_BASE_URL}/app_data.json`),
+          fetch(`${FIREBASE_BASE_URL}/exam_categories.json`),
+          fetch(`${FIREBASE_BASE_URL}/exam_items.json`),
+          fetch(`${FIREBASE_BASE_URL}/notes.json`),
+          fetch(`${FIREBASE_BASE_URL}/questions.json`),
+          fetch(`${FIREBASE_BASE_URL}/study_library.json`),
+          fetch(`${FIREBASE_BASE_URL}/student_feedbacks.json`)
+        ]);
+
+        DB.resetRequests = (await reqRes.json()) || {};
+        DB.students = (await stuRes.json()) || {};
+        DB.studentData = (await stuDataRes.json()) || {};
+        DB.disabledClasses = (await disRes.json()) || {};
+        DB.appData = (await appRes.json()) || {};
+
+        const ecRaw = await exCatRes.json();
+        DB.examCategories = ecRaw ? (Array.isArray(ecRaw) ? ecRaw.filter(Boolean) : Object.values(ecRaw)) : [
+          { code: 'CTET', fullTitle: 'Central Teacher Eligibility Test' },
+          { code: 'JTET', fullTitle: 'Jharkhand Teacher Eligibility Test' }
+        ];
+
+        const eiRaw = await exItemRes.json();
+        DB.examItems = eiRaw ? (Array.isArray(eiRaw) ? eiRaw.filter(Boolean) : Object.values(eiRaw)) : [];
+
+        const nRaw = await noteRes.json();
+        DB.notes = nRaw ? (Array.isArray(nRaw) ? nRaw.filter(Boolean) : Object.values(nRaw)) : [];
+
+        const qRaw = await qRes.json();
+        DB.questions = qRaw ? (Array.isArray(qRaw) ? qRaw.filter(Boolean) : Object.values(qRaw)) : [];
+
+        const lRaw = await libRes.json();
+        DB.library = lRaw ? (Array.isArray(lRaw) ? lRaw.filter(Boolean) : Object.values(lRaw)) : [];
+
+        DB.feedbacks = (await fbRes.json()) || {};
+
+        renderResetRequests();
+        renderStudentsDirectory();
+        renderClassToggles();
+        populateSubjectsForSelectedClass('ncertChapClassSel', 'ncertChapSubjSel');
+        populateSubjectsForSelectedClass('ncertNoteClassSel', 'ncertNoteSubjSel', 'ncertNoteChapSel');
+        populateSubjectsForSelectedClass('ncertQClassSel', 'ncertQSubjSel', 'ncertQChapSel');
+        renderExamCategoriesUI();
+        renderLibraryList();
+        renderFeedbacksList();
+      } catch (err) {
+        console.error(err);
+        alert('Sync error. Check internet connection.');
+      }
+    }
+
+    // =========================================================================
+    // 1. PASSWORD RESET REQUESTS
+    // =========================================================================
+    function renderResetRequests() {
+      const container = document.getElementById('resetRequestsContainer');
+      const allReqs = Object.values(DB.resetRequests || {}).filter(Boolean);
+      const pending = allReqs.filter(r => r.status === 'PENDING_ADMIN');
+      document.getElementById('badgePendingCount').textContent = pending.length;
+
+      if (allReqs.length === 0) {
+        container.innerHTML = '<div class="col-span-full admin-card p-8 text-center text-xs text-slate-400">No password reset requests.</div>';
+        return;
+      }
+
+      allReqs.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+      container.innerHTML = allReqs.map(req => {
+        const isPending = req.status === 'PENDING_ADMIN';
+        return `
+          <div class="admin-card p-4 flex flex-col justify-between gap-3 border-l-4 ${isPending ? 'border-l-amber-500' : 'border-l-emerald-500'}">
+            <div>
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full ${isPending ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+                ${isPending ? '⏳ PENDING APPROVAL' : '✅ APPROVED'}
+              </span>
+              <h4 class="font-bold text-sm mt-1.5">${req.studentName} (${req.username})</h4>
+              <p class="text-xs text-slate-600">📧 <strong>${req.studentEmail}</strong></p>
+            </div>
+            ${isPending ? `
+              <button onclick="approveAndSendResetEmail('${req.id}', '${req.accountKey}', '${req.studentEmail}', '${req.studentName.replace(/'/g, "\\'")}', '${req.username}')"
+                      class="w-full py-2.5 bg-[#0D9488] hover:bg-[#134E4A] text-white text-xs font-bold rounded-xl shadow">
+                ✅ Approve & Send New Password Email
+              </button>
+            ` : `<div class="text-xs text-emerald-700 font-bold">Sent Password: ${req.issuedPassword || 'Done'}</div>`}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function approveAndSendResetEmail(reqId, accountKey, studentEmail, studentName, username) {
+      if (EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
+        return alert('Please set your EmailJS keys inside admin.html first!');
+      }
+      const newPassword = prompt(`Enter new password for ${studentName}:`, 'GT' + Math.floor(1000 + Math.random() * 9000));
+      if (!newPassword || !newPassword.trim()) return;
+
+      await fetch(`${FIREBASE_BASE_URL}/student_accounts/${accountKey}/password.json`, {
+        method: 'PUT',
+        body: JSON.stringify(newPassword.trim())
+      });
+
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_STUDENT_TEMPLATE_ID, {
+        to_email: studentEmail,
+        student_name: studentName,
+        username: username,
+        new_password: newPassword.trim()
+      });
+
+      await fetch(`${FIREBASE_BASE_URL}/password_reset_requests/${reqId}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'APPROVED', issuedPassword: newPassword.trim() })
+      });
+
+      alert(`✅ New password sent to ${studentEmail}!`);
+      syncAllAdminData();
+    }
+
+    // =========================================================================
+    // 2. STUDENTS (PROFILE, PROGRESS & NOTE IT BY STUDENT ID)
+    // =========================================================================
+    async function createStudentAccount() {
+      const studentId = document.getElementById('stuId').value.trim();
+      const username = document.getElementById('stuUsername').value.trim();
+      const password = document.getElementById('stuPassword').value.trim();
+      const email = document.getElementById('stuEmail').value.trim().toLowerCase();
+
+      if (!studentId || !username || !password || !email) {
+        return alert('Student ID, Username, Password, and Email are required!');
+      }
+
+      const key = 'stu_' + username.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      await fetch(`${FIREBASE_BASE_URL}/student_accounts/${key}.json`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          studentId, username, password, email,
+          name: '', // Student khud app mein fill karega
+          isActive: true,
+          createdAt: new Date().toISOString()
+        })
+      });
+
+      ['stuId', 'stuUsername', 'stuPassword', 'stuEmail'].forEach(id => document.getElementById(id).value = '');
+      alert('✅ Student login created! Student will fill their own profile after signing in.');
+      syncAllAdminData();
+    }
+
+    function renderStudentsDirectory() {
+      const container = document.getElementById('studentsListContainer');
+      const entries = Object.entries(DB.students || {});
+      if (entries.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400">No student accounts created yet.</p>';
+        return;
+      }
+      container.innerHTML = entries.map(([key, acc]) => {
+        const sData = DB.studentData[key] || {};
+        const prof = sData.profile || {};
+        const displayName = prof.name || acc.name || '(Profile Not Filled Yet)';
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between gap-2">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-900">${acc.studentId || key}</span>
+                <span class="text-[10px] font-bold ${acc.isActive !== false ? 'text-emerald-700' : 'text-rose-600'}">${acc.isActive !== false ? '● Active' : '● Disabled'}</span>
+              </div>
+              <h4 class="font-bold text-sm mt-1">${displayName}</h4>
+              <p class="text-xs text-slate-600 font-mono">User: ${acc.username} | Pass: ${acc.password}</p>
+              <p class="text-[11px] text-slate-500">📧 ${prof.email || acc.email || '—'}</p>
+            </div>
+            <div class="flex items-center gap-1.5 pt-2 border-t">
+              <button onclick="inspectStudentRecord('${key}')" class="flex-1 py-1.5 bg-[#134E4A] text-white rounded-lg text-xs font-bold">📊 Inspect Data</button>
+              <button onclick="toggleStudentActive('${key}', ${acc.isActive === false})" class="px-2.5 py-1.5 bg-white border rounded-lg text-xs font-bold">${acc.isActive === false ? 'Enable' : 'Disable'}</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function inspectStudentRecord(key) {
+      const acc = DB.students[key] || {};
+      const sData = DB.studentData[key] || {};
+      const prof = sData.profile || {};
+      const tests = Object.values(sData.completed_tests || {});
+      const notes = Object.values(sData.note_it || {});
+
+      document.getElementById('inspHeaderTitle').textContent = `${prof.name || acc.username} (ID: ${acc.studentId || key})`;
+
+      document.getElementById('inspProfileCol').innerHTML = `
+        <h4 class="font-black text-[#134E4A] border-b pb-1">👤 Student Profile</h4>
+        <p><strong>Name:</strong> ${prof.name || 'Not filled'}</p>
+        <p><strong>Email:</strong> ${prof.email || acc.email || '—'}</p>
+        <p><strong>Mobile:</strong> ${prof.mobile || '—'}</p>
+        <p><strong>Education:</strong> ${prof.education || '—'}</p>
+      `;
+
+      document.getElementById('inspProgressCol').innerHTML = `
+        <h4 class="font-black text-[#134E4A] border-b pb-1">📊 Test Progress (${tests.length})</h4>
+        ${tests.length === 0 ? '<p class="text-slate-400">No tests attempted yet.</p>' : tests.map(t => `
+          <div class="p-1.5 bg-white rounded border">
+            <strong>${t.testTitle}</strong>: ${t.score}/${t.total} (${t.accuracy}%)
+          </div>
+        `).join('')}
+      `;
+
+      document.getElementById('inspNoteItCol').innerHTML = `
+        <h4 class="font-black text-[#134E4A] border-b pb-1">📝 NOTE IT Entries (${notes.length})</h4>
+        ${notes.length === 0 ? '<p class="text-slate-400">No cloud notes saved.</p>' : notes.map(n => `
+          <div class="p-1.5 bg-white rounded border">
+            <span class="text-[10px] font-bold text-teal-700">[${n.purpose}]</span> <strong>${n.name}</strong>
+          </div>
+        `).join('')}
+      `;
+
+      document.getElementById('studentInspectorBox').classList.remove('hidden');
+      document.getElementById('studentInspectorBox').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function toggleStudentActive(key, state) {
+      await fetch(`${FIREBASE_BASE_URL}/student_accounts/${key}/isActive.json`, { method: 'PUT', body: JSON.stringify(state) });
+      syncAllAdminData();
+    }
+
+    // =========================================================================
+    // 3. NCERT MANAGER (CLASS TOGGLE, SUBJECT BY CLASS, CHAPTER BY SUBJECT)
+    // =========================================================================
+    function renderClassToggles() {
+      const grid = document.getElementById('ncertClassTogglesGrid');
+      const classes = ['6', '7', '8', '9', '10', '11', '12'];
+      grid.innerHTML = classes.map(cls => {
+        const isDisabled = DB.disabledClasses && DB.disabledClasses[cls] === true;
+        return `
+          <button onclick="toggleClassAvailability('${cls}', ${!isDisabled})"
+                  class="p-3 rounded-xl border text-center transition ${isDisabled ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-emerald-50 border-emerald-300 text-emerald-900'}">
+            <strong class="block text-sm">Class ${cls}</strong>
+            <span class="text-[10px] font-extrabold uppercase">${isDisabled ? '🚫 Unavailable' : '✅ Available'}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    async function toggleClassAvailability(cls, disableFlag) {
+      await fetch(`${FIREBASE_BASE_URL}/disabled_classes/${cls}.json`, {
+        method: 'PUT',
+        body: JSON.stringify(disableFlag)
+      });
+      syncAllAdminData();
+    }
+
+    async function addNcertSubjectForClass() {
+      const cls = document.getElementById('ncertAddSubjClass').value;
+      const name = document.getElementById('ncertAddSubjName').value.trim();
+      const icon = document.getElementById('ncertAddSubjIcon').value.trim() || '📘';
+      if (!name) return alert('Enter Subject Name!');
+
+      const key = 'subj_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const existing = DB.appData[key] || { title: name, icon: icon, isActive: true, classes: {} };
+      if (!existing.classes) existing.classes = {};
+      if (!existing.classes[cls]) existing.classes[cls] = [];
+
+      await fetch(`${FIREBASE_BASE_URL}/app_data/${key}.json`, {
+        method: 'PUT',
+        body: JSON.stringify(existing)
+      });
+      document.getElementById('ncertAddSubjName').value = '';
+      alert(`✅ ${name} added to Class ${cls}!`);
+      syncAllAdminData();
+    }
+
+    function populateSubjectsForSelectedClass(classSelectId, subjSelectId, chapSelectId) {
+      const cls = document.getElementById(classSelectId).value;
+      const subjSel = document.getElementById(subjSelectId);
+      const matchingSubjs = Object.entries(DB.appData || {}).filter(([k, s]) => s && s.classes && s.classes[cls] !== undefined);
+
+      subjSel.innerHTML = matchingSubjs.length === 0
+        ? '<option value="">-- No Subjects in Class ' + cls + ' --</option>'
+        : matchingSubjs.map(([k, s]) => `<option value="${k}">${s.title}</option>`).join('');
+
+      if (chapSelectId) populateChaptersForSelectedSubject(classSelectId, subjSelectId, chapSelectId);
+    }
+
+    function populateChaptersForSelectedSubject(classSelectId, subjSelectId, chapSelectId) {
+      const cls = document.getElementById(classSelectId).value;
+      const subjKey = document.getElementById(subjSelectId).value;
+      const chapSel = document.getElementById(chapSelectId);
+      const subj = DB.appData[subjKey];
+      const chaps = (subj && subj.classes && subj.classes[cls]) ? subj.classes[cls] : [];
+
+      chapSel.innerHTML = chaps.length === 0
+        ? '<option value="">-- No Chapters --</option>'
+        : chaps.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    async function addNcertChapterToSubject() {
+      const cls = document.getElementById('ncertChapClassSel').value;
+      const subjKey = document.getElementById('ncertChapSubjSel').value;
+      const name = document.getElementById('ncertChapNameInput').value.trim();
+      if (!subjKey || !name) return alert('Select Class & Subject, and enter Chapter Name!');
+
+      const subj = DB.appData[subjKey];
+      if (!subj.classes[cls]) subj.classes[cls] = [];
+      subj.classes[cls].push({ id: 'ch_' + Date.now(), name });
+
+      await fetch(`${FIREBASE_BASE_URL}/app_data/${subjKey}.json`, {
+        method: 'PUT',
+        body: JSON.stringify(subj)
+      });
+      document.getElementById('ncertChapNameInput').value = '';
+      alert('✅ Chapter Added!');
+      syncAllAdminData();
+    }
+
+    async function saveNcertPdfNote() {
+      const cls = document.getElementById('ncertNoteClassSel').value;
+      const subjKey = document.getElementById('ncertNoteSubjSel').value;
+      const chapterId = document.getElementById('ncertNoteChapSel').value;
+      const title = document.getElementById('ncertNoteTitle').value.trim();
+      const pdfUrl = document.getElementById('ncertNoteUrl').value.trim();
+
+      if (!chapterId || !title || !pdfUrl) return alert('Select Chapter, Title, and PDF URL!');
+
+      DB.notes.push({
+        id: 'note_' + Date.now(),
+        examType: 'NCERT',
+        class: cls,
+        subject: (DB.appData[subjKey] || {}).title || subjKey,
+        chapterId, title, pdfUrl
+      });
+
+      await fetch(`${FIREBASE_BASE_URL}/notes.json`, { method: 'PUT', body: JSON.stringify(DB.notes) });
+      document.getElementById('ncertNoteTitle').value = '';
+      document.getElementById('ncertNoteUrl').value = '';
+      alert('✅ NCERT Note Saved!');
+      syncAllAdminData();
+    }
+
+    async function saveNcertQuestion() {
+      const chapterId = document.getElementById('ncertQChapSel').value;
+      const subjKey = document.getElementById('ncertQSubjSel').value;
+      const text = document.getElementById('ncertQText').value.trim();
+      const options = [0,1,2,3].map(i => document.getElementById('ncertQOpt' + i).value.trim());
+      const correctIndex = Number(document.getElementById('ncertQCorrect').value);
+      const explanation = document.getElementById('ncertQExp').value.trim();
+
+      if (!chapterId || !text || options.some(o => !o)) return alert('Select Chapter and fill Question + all 4 options!');
+
+      DB.questions.push({
+        id: 'q_' + Date.now(),
+        targetType: 'chapter',
+        chapterId,
+        subject: (DB.appData[subjKey] || {}).title || 'NCERT',
+        text, options, correctIndex, explanation
+      });
+
+      await fetch(`${FIREBASE_BASE_URL}/questions.json`, { method: 'PUT', body: JSON.stringify(DB.questions) });
+      document.getElementById('ncertQText').value = '';
+      [0,1,2,3].forEach(i => document.getElementById('ncertQOpt' + i).value = '');
+      document.getElementById('ncertQExp').value = '';
+      alert('✅ NCERT Question Added!');
+      syncAllAdminData();
+    }
+
+    // =========================================================================
+    // 4. EXAM PREPARATION (ADD EXAM + NOTES / MOCK / CHAPTER TEST / PYQ / SET)
+    // =========================================================================
+    async function addExamCategory() {
+      const code = document.getElementById('newExamCode').value.trim().toUpperCase();
+      const fullTitle = document.getElementById('newExamFull').value.trim() || code;
+      if (!code) return alert('Enter Exam Short Name (e.g. CTET, JTET)');
+
+      if (!DB.examCategories.some(e => e.code === code)) {
+        DB.examCategories.push({ code, fullTitle });
+        await fetch(`${FIREBASE_BASE_URL}/exam_categories.json`, { method: 'PUT', body: JSON.stringify(DB.examCategories) });
+      }
+      document.getElementById('newExamCode').value = '';
+      document.getElementById('newExamFull').value = '';
+      syncAllAdminData();
+    }
+
+    function renderExamCategoriesUI() {
+      const badges = document.getElementById('activeExamsBadges');
+      const sel = document.getElementById('examTargetSelect');
+      const testSel = document.getElementById('examTestTargetSelect');
+
+      badges.innerHTML = DB.examCategories.map(e => `<span class="px-3 py-1 bg-teal-50 border border-teal-200 text-teal-900 rounded-full text-xs font-bold">${e.code} — ${e.fullTitle}</span>`).join('');
+      sel.innerHTML = DB.examCategories.map(e => `<option value="${e.code}">${e.code}</option>`).join('');
+
+      const testItems = DB.examItems.filter(it => it.sectionType !== 'NOTE');
+      testSel.innerHTML = testItems.length === 0
+        ? '<option value="">-- First Create a Mock/PYQ/Set on Left --</option>'
+        : testItems.map(it => `<option value="${it.id}">[${it.examCode} • ${it.sectionType}] ${it.title}</option>`).join('');
+    }
+
+    function toggleExamItemFields() {
+      const t = document.getElementById('examSectionType').value;
+      document.getElementById('examNoteUrlBox').classList.toggle('hidden', t !== 'NOTE');
+      document.getElementById('examTimerBox').classList.toggle('hidden', t === 'NOTE');
+    }
+
+    async function createExamItem() {
+      const examCode = document.getElementById('examTargetSelect').value;
+      const sectionType = document.getElementById('examSectionType').value;
+      const title = document.getElementById('examItemTitle').value.trim();
+      if (!examCode || !title) return alert('Select Exam and enter Title!');
+
+      const item = {
+        id: 'exitem_' + Date.now(),
+        examCode, sectionType, title,
+        pdfUrl: sectionType === 'NOTE' ? document.getElementById('examNotePdfUrl').value.trim() : '',
+        timer: sectionType !== 'NOTE' ? (Number(document.getElementById('examTestTimer').value) || 25) : 0
+      };
+
+      DB.examItems.push(item);
+      await fetch(`${FIREBASE_BASE_URL}/exam_items.json`, { method: 'PUT', body: JSON.stringify(DB.examItems) });
+      document.getElementById('examItemTitle').value = '';
+      document.getElementById('examNotePdfUrl').value = '';
+      alert(`✅ ${title} added under ${examCode}!`);
+      syncAllAdminData();
+    }
+
+    async function saveExamQuestion() {
+      const examItemId = document.getElementById('examTestTargetSelect').value;
+      const text = document.getElementById('examQText').value.trim();
+      const options = [0,1,2,3].map(i => document.getElementById('examQOpt' + i).value.trim());
+      const correctIndex = Number(document.getElementById('examQCorrect').value);
+      const explanation = document.getElementById('examQExp').value.trim();
+
+      if (!examItemId || !text || options.some(o => !o)) return alert('Select Exam Test and fill Question + all 4 options!');
+
+      DB.questions.push({
+        id: 'q_' + Date.now(),
+        targetType: 'exam_item',
+        examItemId,
+        subject: 'Exam Prep',
+        text, options, correctIndex, explanation
+      });
+
+      await fetch(`${FIREBASE_BASE_URL}/questions.json`, { method: 'PUT', body: JSON.stringify(DB.questions) });
+      document.getElementById('examQText').value = '';
+      [0,1,2,3].forEach(i => document.getElementById('examQOpt' + i).value = '');
+      document.getElementById('examQExp').value = '';
+      alert('✅ Question Added to Exam Test!');
+      syncAllAdminData();
+    }
+
+    // =========================================================================
+    // 5. STUDY LIBRARY & 6. FEEDBACKS
+    // =========================================================================
+    async function addLibraryItem() {
+      const type = document.getElementById('libTypeInput').value;
+      const title = document.getElementById('libTitleInput').value.trim();
+      const rawVal = document.getElementById('libContentInput').value.trim();
+      if (!title || !rawVal) return alert('Title and Content/URL required!');
+
+      const item = { id: 'lib_' + Date.now(), type, title };
+      if (type === 'PDF') item.url = rawVal;
+      else if (type === 'PICTURE') item.imageUrl = rawVal;
+      else item.content = rawVal;
+
+      DB.library.push(item);
+      await fetch(`${FIREBASE_BASE_URL}/study_library.json`, { method: 'PUT', body: JSON.stringify(DB.library) });
+      document.getElementById('libTitleInput').value = '';
+      document.getElementById('libContentInput').value = '';
+      syncAllAdminData();
+    }
+
+    function renderLibraryList() {
+      document.getElementById('libraryItemsAdminList').innerHTML = DB.library.map((it, idx) => `
+        <div class="admin-card p-3.5 flex items-center justify-between text-xs">
+          <div><span class="font-bold text-[#0D9488]">${it.type}</span> <strong class="block">${it.title}</strong></div>
+          <button onclick="deleteLibItem(${idx})" class="text-rose-600 font-bold">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    async function deleteLibItem(idx) {
+      DB.library.splice(idx, 1);
+      await fetch(`${FIREBASE_BASE_URL}/study_library.json`, { method: 'PUT', body: JSON.stringify(DB.library) });
+      syncAllAdminData();
+    }
+
+    function renderFeedbacksList() {
+      const container = document.getElementById('feedbacksListContainer');
+      const items = Object.values(DB.feedbacks || {}).filter(Boolean);
+      container.innerHTML = items.length === 0
+        ? '<p class="text-xs text-slate-400">No feedbacks received yet.</p>'
+        : items.reverse().map(fb => `
+          <div class="p-3.5 border rounded-xl bg-slate-50 text-xs">
+            <div class="flex justify-between font-bold text-[#134E4A]">
+              <span>🆔 ${fb.studentId} — ${fb.studentName}</span>
+              <span class="text-slate-400 font-normal">${new Date(fb.createdAt).toLocaleString()}</span>
+            </div>
+            <p class="mt-1.5 text-slate-700">${fb.message}</p>
+          </div>
+        `).join('');
+    }
+
+    window.onload = function() {
+      if (sessionStorage.getItem('gtest_admin_unlocked') === '1') unlockAdminPanel();
+    };
+  </script>
+</body>
+</html>
